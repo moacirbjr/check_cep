@@ -282,8 +282,42 @@
             padding: 0.85rem 1rem;
         }
 
-        .col-logradouro {
+        .col-logradouro-row {
             grid-column: 1 / -1;
+            display: grid;
+            grid-template-columns: 1fr 140px;
+            gap: 1rem;
+        }
+
+        .label-optional {
+            font-size: 0.75rem;
+            font-weight: 400;
+            color: var(--text-dim);
+        }
+
+        /* Match Badges for Range Results */
+        .match-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.25rem 0.65rem;
+            border-radius: var(--radius-full);
+            font-size: 0.75rem;
+            font-weight: 700;
+            margin-top: 0.5rem;
+            width: fit-content;
+        }
+
+        .match-badge.exact-match {
+            background: rgba(16, 185, 129, 0.15);
+            border: 1px solid rgba(16, 185, 129, 0.4);
+            color: #34d399;
+        }
+
+        .match-badge.near-match {
+            background: rgba(245, 158, 11, 0.15);
+            border: 1px solid rgba(245, 158, 11, 0.4);
+            color: #fbbf24;
         }
 
         .address-form-actions {
@@ -766,6 +800,10 @@
                 grid-template-columns: 1fr;
             }
 
+            .col-logradouro-row {
+                grid-template-columns: 1fr;
+            }
+
             .info-grid {
                 grid-template-columns: 1fr;
             }
@@ -891,9 +929,16 @@
                         <input type="text" id="addr-cidade" placeholder="Ex: São Paulo" minlength="3" required>
                     </div>
 
-                    <div class="input-field-group col-logradouro">
-                        <label for="addr-logradouro" class="search-label">Logradouro / Rua / Av.</label>
-                        <input type="text" id="addr-logradouro" placeholder="Ex: Paulista ou Rua das Flores" minlength="3" required>
+                    <div class="col-logradouro-row">
+                        <div class="input-field-group col-logradouro">
+                            <label for="addr-logradouro" class="search-label">Logradouro / Rua / Av.</label>
+                            <input type="text" id="addr-logradouro" placeholder="Ex: Paulista ou Rua das Flores" minlength="3" required>
+                        </div>
+
+                        <div class="input-field-group col-numero">
+                            <label for="addr-numero" class="search-label">Número <span class="label-optional">(opcional)</span></label>
+                            <input type="text" id="addr-numero" placeholder="Ex: 1500" inputmode="numeric">
+                        </div>
                     </div>
                 </div>
 
@@ -953,6 +998,10 @@
                 <div class="info-item">
                     <span class="info-label">Cidade / UF</span>
                     <strong class="info-value" id="res-cidade-uf">São Paulo / SP</strong>
+                </div>
+                <div class="info-item hidden" id="item-numero">
+                    <span class="info-label">Número</span>
+                    <strong class="info-value" id="res-numero">-</strong>
                 </div>
                 <div class="info-item" id="item-complemento">
                     <span class="info-label">Complemento</span>
@@ -1057,6 +1106,7 @@
             const addrUf = document.getElementById('addr-uf');
             const addrCidade = document.getElementById('addr-cidade');
             const addrLogradouro = document.getElementById('addr-logradouro');
+            const addrNumero = document.getElementById('addr-numero');
             const btnSearchAddr = document.getElementById('btn-search-addr');
             const btnTextAddr = btnSearchAddr.querySelector('.btn-text-addr');
             const spinnerAddr = document.getElementById('spinner-addr');
@@ -1076,6 +1126,8 @@
             const resLogradouroVal = document.getElementById('res-logradouro-val');
             const resBairro = document.getElementById('res-bairro');
             const resCidadeUf = document.getElementById('res-cidade-uf');
+            const itemNumero = document.getElementById('item-numero');
+            const resNumero = document.getElementById('res-numero');
             const itemComplemento = document.getElementById('item-complemento');
             const resComplemento = document.getElementById('res-complemento');
             const resRegiaoEstado = document.getElementById('res-regiao-estado');
@@ -1198,6 +1250,7 @@
                 const uf = addrUf.value.trim();
                 const cidade = addrCidade.value.trim();
                 const logradouro = addrLogradouro.value.trim();
+                const numero = addrNumero.value.trim();
 
                 if (!uf) {
                     showError('Por favor, selecione o Estado (UF).');
@@ -1214,14 +1267,15 @@
                     return;
                 }
 
-                fetchCepByAddress(uf, cidade, logradouro);
+                fetchCepByAddress(uf, cidade, logradouro, numero);
             });
 
             // Universal Copy to Clipboard (supports file:// protocol fallback)
             btnCopy.addEventListener('click', () => {
                 if (!currentAddressData) return;
                 
-                const fullAddress = `${currentAddressData.logradouro}${currentAddressData.complemento ? ', ' + currentAddressData.complemento : ''} - ${currentAddressData.bairro}, ${currentAddressData.localidade} - ${currentAddressData.uf}, CEP: ${currentAddressData.cep}`;
+                const numPart = currentAddressData._searchedNumero ? `, nº ${currentAddressData._searchedNumero}` : '';
+                const fullAddress = `${currentAddressData.logradouro}${numPart}${currentAddressData.complemento ? ', ' + currentAddressData.complemento : ''} - ${currentAddressData.bairro}, ${currentAddressData.localidade} - ${currentAddressData.uf}, CEP: ${currentAddressData.cep}`;
                 
                 copyTextToClipboard(fullAddress)
                     .then(() => {
@@ -1302,7 +1356,7 @@
             }
 
             // 2. Fetch CEP by Address (Reverse Search)
-            async function fetchCepByAddress(uf, cidade, logradouro) {
+            async function fetchCepByAddress(uf, cidade, logradouro, searchNumber) {
                 hideError();
                 showLoading(true);
                 resultCard.classList.add('hidden');
@@ -1324,10 +1378,10 @@
                     }
 
                     if (data.length === 1) {
-                        displaySingleResult(data[0]);
-                        saveToHistory(data[0]);
+                        displaySingleResult(data[0], searchNumber);
+                        saveToHistory(data[0], searchNumber);
                     } else {
-                        displayMultipleResults(data, cidade, uf);
+                        displayMultipleResults(data, cidade, uf, searchNumber);
                     }
 
                 } catch (error) {
@@ -1339,10 +1393,114 @@
             }
 
             /* ==========================================================================
+               Street Number Range Parsing & Scoring Engine
+               ========================================================================== */
+
+            function parseComplementoRange(complementoStr, logradouroStr) {
+                const text = `${complementoStr || ''} ${logradouroStr || ''}`.toLowerCase();
+                
+                let parity = 'any';
+                if (text.includes('ímpar') || text.includes('impar')) {
+                    parity = 'odd';
+                } else if (text.includes('par') && !text.includes('ímpar') && !text.includes('impar')) {
+                    parity = 'even';
+                }
+
+                let min = null;
+                let max = null;
+
+                const matchDeA = text.match(/de\s+(\d+)(?:\/\d+)?\s+a\s+(\d+)(?:\/\d+)?/);
+                if (matchDeA) {
+                    min = parseInt(matchDeA[1], 10);
+                    max = parseInt(matchDeA[2], 10);
+                } else {
+                    const matchAte = text.match(/at[eé]\s+(\d+)(?:\/\d+)?/);
+                    if (matchAte) {
+                        min = 1;
+                        max = parseInt(matchAte[1], 10);
+                    } else {
+                        const matchAoFim = text.match(/de\s+(\d+)(?:\/\d+)?\s+(?:ao\s+fim|em\s+diante)/);
+                        if (matchAoFim) {
+                            min = parseInt(matchAoFim[1], 10);
+                            max = Infinity;
+                        } else {
+                            const matchRange = text.match(/(\d+)\s*(?:a|-)\s*(\d+)/);
+                            if (matchRange) {
+                                min = parseInt(matchRange[1], 10);
+                                max = parseInt(matchRange[2], 10);
+                            }
+                        }
+                    }
+                }
+
+                return { min, max, parity };
+            }
+
+            function scoreResultByNumber(item, searchNumberStr) {
+                if (!searchNumberStr || String(searchNumberStr).trim() === '') {
+                    return { score: 99, distance: 0, matchType: 'NONE', badgeText: '' };
+                }
+
+                const num = parseInt(searchNumberStr, 10);
+                if (isNaN(num)) {
+                    return { score: 99, distance: 0, matchType: 'NONE', badgeText: '' };
+                }
+
+                const range = parseComplementoRange(item.complemento, item.logradouro);
+
+                let parityOk = true;
+                if (range.parity === 'even' && num % 2 !== 0) parityOk = false;
+                if (range.parity === 'odd' && num % 2 === 0) parityOk = false;
+
+                if (range.min !== null && range.max !== null) {
+                    if (num >= range.min && num <= range.max) {
+                        if (parityOk) {
+                            return {
+                                score: 1,
+                                distance: 0,
+                                matchType: 'EXACT',
+                                badgeText: `⭐ Faixa do nº ${num} (Correspondência Exata)`
+                            };
+                        } else {
+                            return {
+                                score: 2,
+                                distance: 1,
+                                matchType: 'PARITY_MISMATCH',
+                                badgeText: `📍 Faixa do nº ${num} (Paridade oposta)`
+                            };
+                        }
+                    } else {
+                        let dist = 0;
+                        if (num < range.min) dist = range.min - num;
+                        else if (range.max !== Infinity) dist = num - range.max;
+                        
+                        return {
+                            score: 3,
+                            distance: dist,
+                            matchType: 'NEAR',
+                            badgeText: `📍 Próximo ao nº ${num}`
+                        };
+                    }
+                }
+
+                return {
+                    score: 4,
+                    distance: 999999,
+                    matchType: 'UNSPECIFIED',
+                    badgeText: ''
+                };
+            }
+
+            /* ==========================================================================
                UI Rendering Functions
                ========================================================================== */
 
-            function displaySingleResult(data) {
+            function displaySingleResult(data, searchNumber) {
+                const numVal = searchNumber !== undefined && searchNumber !== null && String(searchNumber).trim() !== ''
+                    ? String(searchNumber).trim()
+                    : (data._searchedNumero || '');
+
+                data._searchedNumero = numVal;
                 currentAddressData = data;
 
                 const uf = data.uf || '';
@@ -1354,12 +1512,21 @@
 
                 // Badge & Headers
                 badgeUfCity.textContent = `${uf} · ${cidade}`;
-                resLogradouroHeader.textContent = logradouro;
+                resLogradouroHeader.textContent = numVal ? `${logradouro}, nº ${numVal}` : logradouro;
                 resBairroCidadeHeader.textContent = `${bairro} — ${cidade} / ${uf}`;
 
                 // Info Values
                 resCep.textContent = data.cep || cepInput.value;
                 resLogradouroVal.textContent = logradouro;
+                
+                if (numVal) {
+                    resNumero.textContent = numVal;
+                    itemNumero.classList.remove('hidden');
+                } else {
+                    resNumero.textContent = '-';
+                    itemNumero.classList.add('hidden');
+                }
+
                 resBairro.textContent = bairro;
                 resCidadeUf.textContent = `${cidade} / ${uf}`;
                 
@@ -1374,8 +1541,9 @@
                 resDdd.textContent = data.ddd ? `(${data.ddd})` : '-';
                 resIbge.textContent = data.ibge || '-';
 
-                // Google Maps Link & Iframe Embed
-                const searchQuery = encodeURIComponent(`${logradouro}, ${bairro}, ${cidade} - ${uf}, Brasil`);
+                // Google Maps Link & Iframe Embed (Include number if present)
+                const fullAddressString = `${logradouro}${numVal ? ', ' + numVal : ''}, ${bairro}, ${cidade} - ${uf}, Brasil`;
+                const searchQuery = encodeURIComponent(fullAddressString);
                 linkMap.href = `https://www.google.com/maps/search/?api=1&query=${searchQuery}`;
                 mapIframe.src = `https://maps.google.com/maps?q=${searchQuery}&t=&z=15&ie=UTF8&iwloc=&output=embed`;
 
@@ -1387,12 +1555,37 @@
                 resultCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
             }
 
-            function displayMultipleResults(list, cidade, uf) {
+            function displayMultipleResults(list, cidade, uf, searchNumber) {
+                // If a street number was provided, sort results by match closeness
+                if (searchNumber && String(searchNumber).trim() !== '') {
+                    list.sort((a, b) => {
+                        const resA = scoreResultByNumber(a, searchNumber);
+                        const resB = scoreResultByNumber(b, searchNumber);
+                        if (resA.score !== resB.score) {
+                            return resA.score - resB.score;
+                        }
+                        return resA.distance - resB.distance;
+                    });
+                }
+
                 addressResultsCount.textContent = `${list.length} CEPs encontrados`;
-                addressResultsSubtitle.textContent = `Resultados em ${cidade} / ${uf}. Clique para ver o mapa e detalhes.`;
+                
+                if (searchNumber && String(searchNumber).trim() !== '') {
+                    addressResultsSubtitle.textContent = `Resultados em ${cidade} / ${uf} ordenados para o nº ${searchNumber}. Clique para ver o mapa.`;
+                } else {
+                    addressResultsSubtitle.textContent = `Resultados em ${cidade} / ${uf}. Clique para ver o mapa e detalhes.`;
+                }
+                
                 addressResultsList.innerHTML = '';
 
                 list.forEach(item => {
+                    const matchInfo = scoreResultByNumber(item, searchNumber);
+                    let badgeHtml = '';
+                    if (matchInfo.badgeText) {
+                        const badgeClass = matchInfo.matchType === 'EXACT' ? 'exact-match' : 'near-match';
+                        badgeHtml = `<div class="match-badge ${badgeClass}">${matchInfo.badgeText}</div>`;
+                    }
+
                     const card = document.createElement('div');
                     card.className = 'address-item-card';
                     card.innerHTML = `
@@ -1406,6 +1599,7 @@
                             </span>
                             <span class="addr-card-street">${item.logradouro || 'Sem logradouro'} ${item.complemento ? ' (' + item.complemento + ')' : ''}</span>
                             <span class="addr-card-sub">${item.bairro} · ${item.localidade} / ${item.uf}</span>
+                            ${badgeHtml}
                         </div>
                         <div class="addr-card-action">
                             <span>Ver Detalhes</span>
@@ -1416,8 +1610,8 @@
                     `;
 
                     card.addEventListener('click', () => {
-                        displaySingleResult(item);
-                        saveToHistory(item);
+                        displaySingleResult(item, searchNumber);
+                        saveToHistory(item, searchNumber);
                     });
 
                     addressResultsList.appendChild(card);
