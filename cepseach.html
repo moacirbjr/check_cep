@@ -1,0 +1,1541 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Consulta e Descoberta de CEP | ViaCEP</title>
+    <meta name="description" content="Consulte endereços pelo CEP ou descubra o CEP informando o endereço completo com a API oficial do ViaCEP. Funciona offline/localmente em arquivo único.">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <style>
+        /* ==========================================================================
+           Variables & Theme System
+           ========================================================================== */
+        :root {
+            --font-primary: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            
+            /* Color Palette */
+            --bg-dark: #0b0f19;
+            --bg-card: rgba(18, 26, 43, 0.7);
+            --bg-card-hover: rgba(26, 38, 62, 0.8);
+            --border-color: rgba(255, 255, 255, 0.08);
+            --border-highlight: rgba(99, 102, 241, 0.4);
+            
+            --accent-primary: #6366f1;
+            --accent-gradient: linear-gradient(135deg, #6366f1 0%, #a855f7 50%, #ec4899 100%);
+            --accent-glow: rgba(99, 102, 241, 0.25);
+            
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --text-dim: #64748b;
+            
+            --danger: #ef4444;
+            --danger-bg: rgba(239, 68, 68, 0.1);
+            --success: #10b981;
+            
+            --radius-sm: 8px;
+            --radius-md: 14px;
+            --radius-lg: 20px;
+            --radius-full: 9999px;
+            
+            --transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        /* ==========================================================================
+           Global Reset & Base Setup
+           ========================================================================== */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: var(--font-primary);
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-between;
+            padding: 2rem 1rem;
+            position: relative;
+            overflow-x: hidden;
+        }
+
+        /* Background Glow Effects */
+        .bg-glow {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(120px);
+            pointer-events: none;
+            z-index: 0;
+            opacity: 0.5;
+        }
+
+        .bg-glow-1 {
+            top: -10%;
+            left: 20%;
+            width: 450px;
+            height: 450px;
+            background: radial-gradient(circle, #4f46e5 0%, rgba(79, 70, 229, 0) 70%);
+        }
+
+        .bg-glow-2 {
+            bottom: 5%;
+            right: 15%;
+            width: 500px;
+            height: 500px;
+            background: radial-gradient(circle, #ec4899 0%, rgba(236, 72, 153, 0) 70%);
+        }
+
+        /* ==========================================================================
+           Layout Containers & Glassmorphism
+           ========================================================================== */
+        .app-container {
+            width: 100%;
+            max-width: 720px;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+            position: relative;
+            z-index: 1;
+        }
+
+        .glass-panel {
+            background: var(--bg-card);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+            transition: var(--transition);
+        }
+
+        /* Header */
+        .app-header {
+            text-align: center;
+            margin-bottom: 0.5rem;
+        }
+
+        .logo-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: rgba(99, 102, 241, 0.1);
+            border: 1px solid rgba(99, 102, 241, 0.25);
+            color: #818cf8;
+            padding: 0.35rem 0.85rem;
+            border-radius: var(--radius-full);
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+        }
+
+        .app-header h1 {
+            font-size: 2.25rem;
+            font-weight: 800;
+            background: var(--accent-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.5rem;
+        }
+
+        .app-header p {
+            color: var(--text-muted);
+            font-size: 1rem;
+            max-width: 520px;
+            margin: 0 auto;
+        }
+
+        /* ==========================================================================
+           Search Card & Tabs Navigation
+           ========================================================================== */
+        .search-card {
+            padding: 1.75rem;
+        }
+
+        .search-tabs {
+            display: flex;
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            padding: 0.3rem;
+            gap: 0.3rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .tab-btn {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            font-family: inherit;
+            font-size: 0.9rem;
+            font-weight: 600;
+            padding: 0.75rem 1rem;
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            transition: var(--transition);
+        }
+
+        .tab-btn:hover {
+            color: var(--text-main);
+            background: rgba(255, 255, 255, 0.04);
+        }
+
+        .tab-btn.active {
+            background: var(--accent-primary);
+            color: #ffffff;
+            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.35);
+        }
+
+        /* Search Form Common */
+        .search-label {
+            display: block;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            margin-bottom: 0.5rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .search-input-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .search-icon {
+            position: absolute;
+            left: 1rem;
+            color: var(--text-dim);
+            pointer-events: none;
+        }
+
+        /* Input Fields */
+        input[type="text"], select {
+            width: 100%;
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            color: var(--text-main);
+            font-family: inherit;
+            font-size: 1rem;
+            font-weight: 500;
+            outline: none;
+            transition: var(--transition);
+        }
+
+        #cep-input {
+            padding: 1rem 3rem 1rem 2.8rem;
+            font-size: 1.15rem;
+            font-weight: 600;
+            letter-spacing: 0.05em;
+        }
+
+        input[type="text"]:focus, select:focus {
+            border-color: var(--accent-primary);
+            box-shadow: 0 0 0 4px var(--accent-glow);
+            background: rgba(15, 23, 42, 0.9);
+        }
+
+        select {
+            padding: 0.85rem 1rem;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 1rem center;
+            cursor: pointer;
+        }
+
+        select option {
+            background: #0f172a;
+            color: var(--text-main);
+        }
+
+        /* Address Inputs Grid */
+        .address-inputs-grid {
+            display: grid;
+            grid-template-columns: 140px 1fr;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .input-field-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .input-field-group input {
+            padding: 0.85rem 1rem;
+        }
+
+        .col-logradouro {
+            grid-column: 1 / -1;
+        }
+
+        .address-form-actions {
+            margin-top: 1rem;
+        }
+
+        .full-width {
+            width: 100%;
+        }
+
+        /* Clear Button */
+        .btn-clear {
+            position: absolute;
+            right: 9rem;
+            background: transparent;
+            border: none;
+            color: var(--text-dim);
+            cursor: pointer;
+            padding: 0.4rem;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: var(--transition);
+        }
+
+        .btn-clear:hover {
+            color: var(--text-main);
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        /* Buttons */
+        .btn-primary {
+            background: var(--accent-gradient);
+            border: none;
+            color: #fff;
+            font-family: inherit;
+            font-weight: 700;
+            font-size: 0.95rem;
+            padding: 1rem 1.5rem;
+            border-radius: var(--radius-md);
+            cursor: pointer;
+            white-space: nowrap;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            transition: var(--transition);
+            box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(99, 102, 241, 0.45);
+        }
+
+        .btn-primary:active {
+            transform: translateY(0);
+        }
+
+        /* Error Banner */
+        .error-banner {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            background: var(--danger-bg);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            color: #fca5a5;
+            padding: 0.85rem 1rem;
+            border-radius: var(--radius-md);
+            margin-top: 1rem;
+            font-size: 0.9rem;
+            font-weight: 500;
+            animation: fadeIn 0.3s ease;
+        }
+
+        /* ==========================================================================
+           Result Card & Info Grid
+           ========================================================================== */
+        .result-card {
+            padding: 2rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+            animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .result-header {
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 1.25rem;
+        }
+
+        .result-badge {
+            display: inline-block;
+            background: rgba(16, 185, 129, 0.15);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            color: #6ee7b7;
+            font-size: 0.8rem;
+            font-weight: 700;
+            padding: 0.25rem 0.75rem;
+            border-radius: var(--radius-full);
+            margin-bottom: 0.5rem;
+            text-transform: uppercase;
+        }
+
+        .result-header h2 {
+            font-size: 1.6rem;
+            font-weight: 700;
+            color: var(--text-main);
+            line-height: 1.2;
+        }
+
+        .result-header p {
+            color: var(--text-muted);
+            font-size: 0.95rem;
+            margin-top: 0.25rem;
+        }
+
+        /* Info Grid */
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1rem;
+        }
+
+        .info-item {
+            background: rgba(15, 23, 42, 0.5);
+            border: 1px solid var(--border-color);
+            padding: 1rem;
+            border-radius: var(--radius-md);
+            display: flex;
+            flex-direction: column;
+            gap: 0.3rem;
+            transition: var(--transition);
+        }
+
+        .info-item:hover {
+            border-color: rgba(255, 255, 255, 0.15);
+            background: rgba(15, 23, 42, 0.8);
+        }
+
+        .highlight-cep {
+            border-color: rgba(99, 102, 241, 0.4);
+            background: rgba(99, 102, 241, 0.08);
+        }
+
+        .cep-value-accent {
+            font-size: 1.25rem;
+            color: #818cf8;
+        }
+
+        .info-label {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .info-value {
+            font-size: 1.05rem;
+            font-weight: 600;
+            color: var(--text-main);
+            word-break: break-word;
+        }
+
+        /* ==========================================================================
+           Multiple Address Results List (Reverse CEP Search)
+           ========================================================================== */
+        .address-results-list {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .address-item-card {
+            background: rgba(15, 23, 42, 0.5);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            padding: 1.25rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            cursor: pointer;
+            transition: var(--transition);
+        }
+
+        .address-item-card:hover {
+            background: rgba(26, 38, 62, 0.9);
+            border-color: var(--accent-primary);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+        }
+
+        .addr-card-info {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+
+        .addr-card-cep {
+            font-size: 1.15rem;
+            font-weight: 700;
+            color: #818cf8;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .addr-card-street {
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--text-main);
+        }
+
+        .addr-card-sub {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+
+        .addr-card-action {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: var(--text-dim);
+        }
+
+        .address-item-card:hover .addr-card-action {
+            color: var(--accent-primary);
+        }
+
+        /* Actions Bar */
+        .actions-bar {
+            display: flex;
+            gap: 1rem;
+            margin-top: 0.5rem;
+        }
+
+        .btn-secondary {
+            flex: 1;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+            padding: 0.85rem 1.25rem;
+            border-radius: var(--radius-md);
+            font-size: 0.9rem;
+            font-weight: 600;
+            text-decoration: none;
+            cursor: pointer;
+            transition: var(--transition);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: rgba(255, 255, 255, 0.2);
+            transform: translateY(-2px);
+        }
+
+        /* Map Iframe Container */
+        .map-container {
+            width: 100%;
+            height: 220px;
+            border-radius: var(--radius-md);
+            overflow: hidden;
+            border: 1px solid var(--border-color);
+            margin-top: 0.5rem;
+        }
+
+        .map-container iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+            filter: invert(90%) hue-rotate(180deg) brightness(95%) contrast(90%);
+        }
+
+        /* ==========================================================================
+           History Section
+           ========================================================================== */
+        .history-card {
+            padding: 1.5rem;
+        }
+
+        .history-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .history-header h3 {
+            font-size: 1rem;
+            font-weight: 700;
+            color: var(--text-muted);
+        }
+
+        .btn-link {
+            background: none;
+            border: none;
+            color: var(--text-dim);
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: var(--transition);
+        }
+
+        .btn-link:hover {
+            color: var(--danger);
+        }
+
+        .history-chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.6rem;
+        }
+
+        .chip {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border-color);
+            padding: 0.4rem 0.85rem;
+            border-radius: var(--radius-full);
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: var(--transition);
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+
+        .chip:hover {
+            background: rgba(99, 102, 241, 0.15);
+            border-color: var(--accent-primary);
+            color: var(--text-main);
+        }
+
+        /* ==========================================================================
+           Skeleton Loaders & Spinner
+           ========================================================================== */
+        .skeleton {
+            background: linear-gradient(90deg, rgba(255, 255, 255, 0.03) 25%, rgba(255, 255, 255, 0.08) 50%, rgba(255, 255, 255, 0.03) 75%);
+            background-size: 200% 100%;
+            animation: skeleton-loading 1.5s infinite;
+            border-radius: var(--radius-sm);
+        }
+
+        .skeleton-title {
+            height: 28px;
+            width: 60%;
+            margin-bottom: 10px;
+        }
+
+        .skeleton-subtitle {
+            height: 16px;
+            width: 40%;
+        }
+
+        .skeleton-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1rem;
+            margin-top: 1.5rem;
+        }
+
+        .skeleton-box {
+            height: 70px;
+            border-radius: var(--radius-md);
+        }
+
+        @keyframes skeleton-loading {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+
+        /* Spinner */
+        .spinner {
+            width: 18px;
+            height: 18px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-top-color: #fff;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Toast */
+        .toast {
+            position: fixed;
+            bottom: 2rem;
+            background: #1e293b;
+            border: 1px solid var(--success);
+            color: #6ee7b7;
+            padding: 0.85rem 1.5rem;
+            border-radius: var(--radius-full);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            font-size: 0.9rem;
+            font-weight: 600;
+            z-index: 100;
+            animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        /* Footer */
+        .app-footer {
+            margin-top: 2rem;
+            text-align: center;
+            color: var(--text-dim);
+            font-size: 0.85rem;
+        }
+
+        .app-footer a {
+            color: var(--accent-primary);
+            text-decoration: none;
+        }
+
+        .app-footer a:hover {
+            text-decoration: underline;
+        }
+
+        /* Utilities */
+        .hidden {
+            display: none !important;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(15px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* ==========================================================================
+           Responsive Adaptations
+           ========================================================================== */
+        @media (max-width: 640px) {
+            body {
+                padding: 1.5rem 0.75rem;
+            }
+
+            .app-header h1 {
+                font-size: 1.75rem;
+            }
+
+            .search-tabs {
+                flex-direction: column;
+            }
+
+            .search-input-wrapper {
+                flex-direction: column;
+            }
+
+            #cep-input {
+                padding-right: 2.8rem;
+            }
+
+            .btn-clear {
+                right: 1rem;
+                top: 1.1rem;
+            }
+
+            .btn-primary {
+                width: 100%;
+                padding: 0.9rem;
+            }
+
+            .address-inputs-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .info-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .actions-bar {
+                flex-direction: column;
+            }
+
+            .address-item-card {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="bg-glow bg-glow-1"></div>
+    <div class="bg-glow bg-glow-2"></div>
+
+    <main class="app-container">
+        <!-- Header -->
+        <header class="app-header">
+            <div class="logo-badge">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/>
+                    <circle cx="12" cy="10" r="3"/>
+                </svg>
+                <span>ViaCEP API</span>
+            </div>
+            <h1>Consulta de CEP & Endereço</h1>
+            <p>Busque endereços por CEP ou descubra o CEP informando o Estado, Cidade e Logradouro.</p>
+        </header>
+
+        <!-- Search Card with Tabs -->
+        <section class="search-card glass-panel">
+            <!-- Tabs Navigation -->
+            <div class="search-tabs">
+                <button type="button" class="tab-btn active" id="tab-search-cep">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/>
+                        <circle cx="12" cy="10" r="3"/>
+                    </svg>
+                    <span>Buscar por CEP</span>
+                </button>
+                <button type="button" class="tab-btn" id="tab-search-address">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                        <circle cx="12" cy="10" r="3"></circle>
+                    </svg>
+                    <span>Descobrir CEP por Endereço</span>
+                </button>
+            </div>
+
+            <!-- Mode 1: Search by CEP -->
+            <form id="cep-form" class="search-mode-form" autocomplete="off">
+                <label for="cep-input" class="search-label">Informe o CEP</label>
+                <div class="search-input-wrapper">
+                    <svg class="search-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="11" cy="11" r="8"/>
+                        <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                    </svg>
+                    <input 
+                        type="text" 
+                        id="cep-input" 
+                        placeholder="00000-000" 
+                        maxlength="9" 
+                        inputmode="numeric"
+                        autofocus
+                        required
+                    >
+                    <button type="button" id="btn-clear" class="btn-clear hidden" title="Limpar campo">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="18" y1="6" x2="6" y2="18"/>
+                            <line x1="6" y1="6" x2="18" y2="18"/>
+                        </svg>
+                    </button>
+                    <button type="submit" id="btn-search" class="btn-primary">
+                        <span class="btn-text">Buscar CEP</span>
+                        <div class="spinner hidden" id="spinner"></div>
+                    </button>
+                </div>
+            </form>
+
+            <!-- Mode 2: Search CEP by Address -->
+            <form id="address-form" class="search-mode-form hidden" autocomplete="off">
+                <div class="address-inputs-grid">
+                    <div class="input-field-group col-uf">
+                        <label for="addr-uf" class="search-label">Estado (UF)</label>
+                        <select id="addr-uf" required>
+                            <option value="">Selecione...</option>
+                            <option value="AC">AC - Acre</option>
+                            <option value="AL">AL - Alagoas</option>
+                            <option value="AP">AP - Amapá</option>
+                            <option value="AM">AM - Amazonas</option>
+                            <option value="BA">BA - Bahia</option>
+                            <option value="CE">CE - Ceará</option>
+                            <option value="DF">DF - Distrito Federal</option>
+                            <option value="ES">ES - Espírito Santo</option>
+                            <option value="GO">GO - Goiás</option>
+                            <option value="MA">MA - Maranhão</option>
+                            <option value="MT">MT - Mato Grosso</option>
+                            <option value="MS">MS - Mato Grosso do Sul</option>
+                            <option value="MG">MG - Minas Gerais</option>
+                            <option value="PA">PA - Pará</option>
+                            <option value="PB">PB - Paraíba</option>
+                            <option value="PR">PR - Paraná</option>
+                            <option value="PE">PE - Pernambuco</option>
+                            <option value="PI">PI - Piauí</option>
+                            <option value="RJ">RJ - Rio de Janeiro</option>
+                            <option value="RN">RN - Rio Grande do Norte</option>
+                            <option value="RS">RS - Rio Grande do Sul</option>
+                            <option value="RO">RO - Rondônia</option>
+                            <option value="RR">RR - Roraima</option>
+                            <option value="SC">SC - Santa Catarina</option>
+                            <option value="SP" selected>SP - São Paulo</option>
+                            <option value="SE">SE - Sergipe</option>
+                            <option value="TO">TO - Tocantins</option>
+                        </select>
+                    </div>
+
+                    <div class="input-field-group col-cidade">
+                        <label for="addr-cidade" class="search-label">Cidade</label>
+                        <input type="text" id="addr-cidade" placeholder="Ex: São Paulo" minlength="3" required>
+                    </div>
+
+                    <div class="input-field-group col-logradouro">
+                        <label for="addr-logradouro" class="search-label">Logradouro / Rua / Av.</label>
+                        <input type="text" id="addr-logradouro" placeholder="Ex: Paulista ou Rua das Flores" minlength="3" required>
+                    </div>
+                </div>
+
+                <div class="address-form-actions">
+                    <button type="submit" id="btn-search-addr" class="btn-primary full-width">
+                        <span class="btn-text-addr">Localizar CEPs</span>
+                        <div class="spinner hidden" id="spinner-addr"></div>
+                    </button>
+                </div>
+            </form>
+
+            <div id="error-message" class="error-banner hidden">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"/>
+                    <line x1="12" y1="8" x2="12" y2="12"/>
+                    <line x1="12" y1="16" x2="12.01" y2="16"/>
+                </svg>
+                <span id="error-text">CEP não encontrado. Verifique o número digitado.</span>
+            </div>
+        </section>
+
+        <!-- Loading Skeleton -->
+        <section id="skeleton-loader" class="glass-panel result-card hidden">
+            <div class="skeleton-header">
+                <div class="skeleton skeleton-title"></div>
+                <div class="skeleton skeleton-subtitle"></div>
+            </div>
+            <div class="skeleton-grid">
+                <div class="skeleton skeleton-box"></div>
+                <div class="skeleton skeleton-box"></div>
+                <div class="skeleton skeleton-box"></div>
+                <div class="skeleton skeleton-box"></div>
+            </div>
+        </section>
+
+        <!-- Results Card (Single CEP Details) -->
+        <section id="result-card" class="glass-panel result-card hidden">
+            <div class="result-header">
+                <div class="result-badge" id="badge-uf-city">SP · São Paulo</div>
+                <h2 id="res-logradouro">Praça da Sé</h2>
+                <p id="res-bairro-cidade">Bairro Sé - São Paulo / SP</p>
+            </div>
+
+            <div class="info-grid">
+                <div class="info-item highlight-cep">
+                    <span class="info-label">CEP Encontrado</span>
+                    <strong class="info-value cep-value-accent" id="res-cep">01001-000</strong>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Logradouro</span>
+                    <strong class="info-value" id="res-logradouro-val">Praça da Sé</strong>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Bairro</span>
+                    <strong class="info-value" id="res-bairro">Sé</strong>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Cidade / UF</span>
+                    <strong class="info-value" id="res-cidade-uf">São Paulo / SP</strong>
+                </div>
+                <div class="info-item" id="item-complemento">
+                    <span class="info-label">Complemento</span>
+                    <strong class="info-value" id="res-complemento">-</strong>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Região / Estado</span>
+                    <strong class="info-value" id="res-regiao-estado">Sudeste (São Paulo)</strong>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">DDD</span>
+                    <strong class="info-value" id="res-ddd">11</strong>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Código IBGE</span>
+                    <strong class="info-value" id="res-ibge">3550308</strong>
+                </div>
+            </div>
+
+            <!-- Actions Bar -->
+            <div class="actions-bar">
+                <button type="button" id="btn-copy" class="btn-secondary">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                    </svg>
+                    <span>Copiar Endereço</span>
+                </button>
+                <a id="link-map" href="#" target="_blank" rel="noopener noreferrer" class="btn-secondary">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/>
+                        <line x1="8" y1="2" x2="8" y2="18"/>
+                        <line x1="16" y1="6" x2="16" y2="22"/>
+                    </svg>
+                    <span>Ver no Google Maps</span>
+                </a>
+            </div>
+
+            <!-- Map View Container -->
+            <div class="map-container">
+                <iframe id="map-iframe" src="" loading="lazy" title="Mapa do endereço"></iframe>
+            </div>
+        </section>
+
+        <!-- Multiple Results Card (Address Search Matches) -->
+        <section id="address-results-card" class="glass-panel result-card hidden">
+            <div class="result-header">
+                <div class="result-badge" id="address-results-count">3 CEPs encontrados</div>
+                <h2>Resultados Encontrados</h2>
+                <p id="address-results-subtitle">Clique em qualquer resultado para ver os detalhes completos no mapa.</p>
+            </div>
+
+            <div id="address-results-list" class="address-results-list">
+                <!-- Dynamically populated cards -->
+            </div>
+        </section>
+
+        <!-- History Section -->
+        <section id="history-section" class="glass-panel history-card hidden">
+            <div class="history-header">
+                <h3>Consultas Recentes</h3>
+                <button type="button" id="btn-clear-history" class="btn-link">Limpar Histórico</button>
+            </div>
+            <div id="history-chips" class="history-chips">
+                <!-- Dynamically populated -->
+            </div>
+        </section>
+    </main>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="toast hidden">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+            <polyline points="22 4 12 14.01 9 11.01"/>
+        </svg>
+        <span id="toast-text">Endereço copiado!</span>
+    </div>
+
+    <footer class="app-footer">
+        <p>Desenvolvido com a <a href="https://viacep.com.br" target="_blank" rel="noopener noreferrer">API ViaCEP</a> · Arquivo Único (Standalone)</p>
+    </footer>
+
+    <!-- Embedded JavaScript Logic -->
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // Tab Elements
+            const tabSearchCep = document.getElementById('tab-search-cep');
+            const tabSearchAddress = document.getElementById('tab-search-address');
+            
+            // Forms
+            const cepForm = document.getElementById('cep-form');
+            const addressForm = document.getElementById('address-form');
+            
+            // CEP Form Controls
+            const cepInput = document.getElementById('cep-input');
+            const btnClear = document.getElementById('btn-clear');
+            const btnSearch = document.getElementById('btn-search');
+            const btnText = btnSearch.querySelector('.btn-text');
+            const spinner = document.getElementById('spinner');
+
+            // Address Form Controls
+            const addrUf = document.getElementById('addr-uf');
+            const addrCidade = document.getElementById('addr-cidade');
+            const addrLogradouro = document.getElementById('addr-logradouro');
+            const btnSearchAddr = document.getElementById('btn-search-addr');
+            const btnTextAddr = btnSearchAddr.querySelector('.btn-text-addr');
+            const spinnerAddr = document.getElementById('spinner-addr');
+            
+            // Common Messages & Loader
+            const errorMessage = document.getElementById('error-message');
+            const errorText = document.getElementById('error-text');
+            const skeletonLoader = document.getElementById('skeleton-loader');
+            
+            // Single CEP Result Card Elements
+            const resultCard = document.getElementById('result-card');
+            const badgeUfCity = document.getElementById('badge-uf-city');
+            const resLogradouroHeader = document.getElementById('res-logradouro');
+            const resBairroCidadeHeader = document.getElementById('res-bairro-cidade');
+            
+            const resCep = document.getElementById('res-cep');
+            const resLogradouroVal = document.getElementById('res-logradouro-val');
+            const resBairro = document.getElementById('res-bairro');
+            const resCidadeUf = document.getElementById('res-cidade-uf');
+            const itemComplemento = document.getElementById('item-complemento');
+            const resComplemento = document.getElementById('res-complemento');
+            const resRegiaoEstado = document.getElementById('res-regiao-estado');
+            const resDdd = document.getElementById('res-ddd');
+            const resIbge = document.getElementById('res-ibge');
+            
+            const btnCopy = document.getElementById('btn-copy');
+            const linkMap = document.getElementById('link-map');
+            const mapIframe = document.getElementById('map-iframe');
+            
+            // Multiple Address Results Card Elements
+            const addressResultsCard = document.getElementById('address-results-card');
+            const addressResultsCount = document.getElementById('address-results-count');
+            const addressResultsSubtitle = document.getElementById('address-results-subtitle');
+            const addressResultsList = document.getElementById('address-results-list');
+
+            // History Elements
+            const historySection = document.getElementById('history-section');
+            const historyChips = document.getElementById('history-chips');
+            const btnClearHistory = document.getElementById('btn-clear-history');
+            
+            // Toast Element
+            const toast = document.getElementById('toast');
+            const toastText = document.getElementById('toast-text');
+
+            // Local Storage Key
+            const STORAGE_KEY = 'viacep_recent_searches';
+            let currentAddressData = null;
+
+            // Load initial history
+            renderHistory();
+
+            /* ==========================================================================
+               Tab Navigation Logic
+               ========================================================================== */
+
+            tabSearchCep.addEventListener('click', () => {
+                switchTab('cep');
+            });
+
+            tabSearchAddress.addEventListener('click', () => {
+                switchTab('address');
+            });
+
+            function switchTab(mode) {
+                hideError();
+                resultCard.classList.add('hidden');
+                addressResultsCard.classList.add('hidden');
+
+                if (mode === 'cep') {
+                    tabSearchCep.classList.add('active');
+                    tabSearchAddress.classList.remove('active');
+                    cepForm.classList.remove('hidden');
+                    addressForm.classList.add('hidden');
+                    cepInput.focus();
+                } else {
+                    tabSearchAddress.classList.add('active');
+                    tabSearchCep.classList.remove('active');
+                    addressForm.classList.remove('hidden');
+                    cepForm.classList.add('hidden');
+                    addrCidade.focus();
+                }
+            }
+
+            /* ==========================================================================
+               Input Mask & Event Listeners
+               ========================================================================== */
+
+            // Format CEP while typing (00000-000)
+            cepInput.addEventListener('input', (e) => {
+                let value = e.target.value.replace(/\D/g, ''); // Keep only numbers
+                
+                if (value.length > 8) {
+                    value = value.slice(0, 8);
+                }
+
+                if (value.length > 5) {
+                    value = `${value.slice(0, 5)}-${value.slice(5)}`;
+                }
+
+                e.target.value = value;
+
+                if (value.length > 0) {
+                    btnClear.classList.remove('hidden');
+                } else {
+                    btnClear.classList.add('hidden');
+                    hideError();
+                }
+
+                const cleanDigits = value.replace(/\D/g, '');
+                if (cleanDigits.length === 8) {
+                    fetchAddressByCep(cleanDigits);
+                }
+            });
+
+            // Clear CEP input
+            btnClear.addEventListener('click', () => {
+                cepInput.value = '';
+                btnClear.classList.add('hidden');
+                hideError();
+                resultCard.classList.add('hidden');
+                cepInput.focus();
+            });
+
+            // Submit CEP Form
+            cepForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const cleanCep = cepInput.value.replace(/\D/g, '');
+                if (cleanCep.length !== 8) {
+                    showError('Por favor, digite um CEP válido com 8 dígitos.');
+                    return;
+                }
+                fetchAddressByCep(cleanCep);
+            });
+
+            // Submit Address Form (Reverse Search)
+            addressForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+
+                const uf = addrUf.value.trim();
+                const cidade = addrCidade.value.trim();
+                const logradouro = addrLogradouro.value.trim();
+
+                if (!uf) {
+                    showError('Por favor, selecione o Estado (UF).');
+                    return;
+                }
+
+                if (cidade.length < 3) {
+                    showError('A cidade deve conter pelo menos 3 caracteres.');
+                    return;
+                }
+
+                if (logradouro.length < 3) {
+                    showError('O logradouro deve conter pelo menos 3 caracteres.');
+                    return;
+                }
+
+                fetchCepByAddress(uf, cidade, logradouro);
+            });
+
+            // Universal Copy to Clipboard (supports file:// protocol fallback)
+            btnCopy.addEventListener('click', () => {
+                if (!currentAddressData) return;
+                
+                const fullAddress = `${currentAddressData.logradouro}${currentAddressData.complemento ? ', ' + currentAddressData.complemento : ''} - ${currentAddressData.bairro}, ${currentAddressData.localidade} - ${currentAddressData.uf}, CEP: ${currentAddressData.cep}`;
+                
+                copyTextToClipboard(fullAddress)
+                    .then(() => {
+                        showToast('Endereço copiado para a área de transferência!');
+                    })
+                    .catch(() => {
+                        showToast('Erro ao copiar endereço.');
+                    });
+            });
+
+            function copyTextToClipboard(text) {
+                if (navigator.clipboard && window.isSecureContext) {
+                    return navigator.clipboard.writeText(text);
+                } else {
+                    return new Promise((resolve, reject) => {
+                        const textArea = document.createElement("textarea");
+                        textArea.value = text;
+                        textArea.style.position = "fixed";
+                        textArea.style.left = "-999999px";
+                        textArea.style.top = "-999999px";
+                        document.body.appendChild(textArea);
+                        textArea.focus();
+                        textArea.select();
+                        try {
+                            const successful = document.execCommand('copy');
+                            document.body.removeChild(textArea);
+                            if (successful) resolve();
+                            else reject(new Error('Falha no recurso de cópia'));
+                        } catch (err) {
+                            document.body.removeChild(textArea);
+                            reject(err);
+                        }
+                    });
+                }
+            }
+
+            // Clear History
+            btnClearHistory.addEventListener('click', () => {
+                localStorage.removeItem(STORAGE_KEY);
+                renderHistory();
+                showToast('Histórico limpo.');
+            });
+
+            /* ==========================================================================
+               ViaCEP Fetching Logic
+               ========================================================================== */
+
+            // 1. Fetch Address by CEP
+            async function fetchAddressByCep(cleanCep) {
+                hideError();
+                showLoading(true);
+                resultCard.classList.add('hidden');
+                addressResultsCard.classList.add('hidden');
+
+                try {
+                    const response = await fetch(`https://viacep.com.br/ws/${cleanCep}/json/`);
+                    
+                    if (!response.ok) {
+                        throw new Error('Falha ao conectar à API do ViaCEP.');
+                    }
+
+                    const data = await response.json();
+
+                    if (data.erro) {
+                        showError('CEP não encontrado na base de dados.');
+                        return;
+                    }
+
+                    displaySingleResult(data);
+                    saveToHistory(data);
+
+                } catch (error) {
+                    console.error('Erro na consulta:', error);
+                    showError('Não foi possível realizar a busca. Verifique sua conexão à internet.');
+                } finally {
+                    showLoading(false);
+                }
+            }
+
+            // 2. Fetch CEP by Address (Reverse Search)
+            async function fetchCepByAddress(uf, cidade, logradouro) {
+                hideError();
+                showLoading(true);
+                resultCard.classList.add('hidden');
+                addressResultsCard.classList.add('hidden');
+
+                try {
+                    const url = `https://viacep.com.br/ws/${uf}/${encodeURIComponent(cidade)}/${encodeURIComponent(logradouro)}/json/`;
+                    const response = await fetch(url);
+
+                    if (!response.ok) {
+                        throw new Error('Falha ao conectar à API do ViaCEP.');
+                    }
+
+                    const data = await response.json();
+
+                    if (!Array.isArray(data) || data.length === 0) {
+                        showError(`Nenhum CEP foi encontrado para "${logradouro}" em ${cidade}/${uf}. Tente resumir o nome da rua.`);
+                        return;
+                    }
+
+                    if (data.length === 1) {
+                        displaySingleResult(data[0]);
+                        saveToHistory(data[0]);
+                    } else {
+                        displayMultipleResults(data, cidade, uf);
+                    }
+
+                } catch (error) {
+                    console.error('Erro na busca por endereço:', error);
+                    showError('Não foi possível realizar a busca. Verifique os dados e tente novamente.');
+                } finally {
+                    showLoading(false);
+                }
+            }
+
+            /* ==========================================================================
+               UI Rendering Functions
+               ========================================================================== */
+
+            function displaySingleResult(data) {
+                currentAddressData = data;
+
+                const uf = data.uf || '';
+                const cidade = data.localidade || '';
+                const logradouro = data.logradouro || 'Sem logradouro específico';
+                const bairro = data.bairro || 'Centro';
+                const estado = data.estado || uf;
+                const regiao = data.regiao || '';
+
+                // Badge & Headers
+                badgeUfCity.textContent = `${uf} · ${cidade}`;
+                resLogradouroHeader.textContent = logradouro;
+                resBairroCidadeHeader.textContent = `${bairro} — ${cidade} / ${uf}`;
+
+                // Info Values
+                resCep.textContent = data.cep || cepInput.value;
+                resLogradouroVal.textContent = logradouro;
+                resBairro.textContent = bairro;
+                resCidadeUf.textContent = `${cidade} / ${uf}`;
+                
+                if (data.complemento && data.complemento.trim() !== '') {
+                    resComplemento.textContent = data.complemento;
+                    itemComplemento.classList.remove('hidden');
+                } else {
+                    resComplemento.textContent = '-';
+                }
+
+                resRegiaoEstado.textContent = regiao ? `${regiao} (${estado})` : estado;
+                resDdd.textContent = data.ddd ? `(${data.ddd})` : '-';
+                resIbge.textContent = data.ibge || '-';
+
+                // Google Maps Link & Iframe Embed
+                const searchQuery = encodeURIComponent(`${logradouro}, ${bairro}, ${cidade} - ${uf}, Brasil`);
+                linkMap.href = `https://www.google.com/maps/search/?api=1&query=${searchQuery}`;
+                mapIframe.src = `https://maps.google.com/maps?q=${searchQuery}&t=&z=15&ie=UTF8&iwloc=&output=embed`;
+
+                // Show result card
+                addressResultsCard.classList.add('hidden');
+                resultCard.classList.remove('hidden');
+
+                // Smooth scroll
+                resultCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+
+            function displayMultipleResults(list, cidade, uf) {
+                addressResultsCount.textContent = `${list.length} CEPs encontrados`;
+                addressResultsSubtitle.textContent = `Resultados em ${cidade} / ${uf}. Clique para ver o mapa e detalhes.`;
+                addressResultsList.innerHTML = '';
+
+                list.forEach(item => {
+                    const card = document.createElement('div');
+                    card.className = 'address-item-card';
+                    card.innerHTML = `
+                        <div class="addr-card-info">
+                            <span class="addr-card-cep">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/>
+                                    <circle cx="12" cy="10" r="3"/>
+                                </svg>
+                                ${item.cep}
+                            </span>
+                            <span class="addr-card-street">${item.logradouro || 'Sem logradouro'} ${item.complemento ? ' (' + item.complemento + ')' : ''}</span>
+                            <span class="addr-card-sub">${item.bairro} · ${item.localidade} / ${item.uf}</span>
+                        </div>
+                        <div class="addr-card-action">
+                            <span>Ver Detalhes</span>
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="9 18 15 12 9 6"/>
+                            </svg>
+                        </div>
+                    `;
+
+                    card.addEventListener('click', () => {
+                        displaySingleResult(item);
+                        saveToHistory(item);
+                    });
+
+                    addressResultsList.appendChild(card);
+                });
+
+                resultCard.classList.add('hidden');
+                addressResultsCard.classList.remove('hidden');
+
+                // Smooth scroll
+                addressResultsCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+
+            function showLoading(isLoading) {
+                if (isLoading) {
+                    btnText.classList.add('hidden');
+                    spinner.classList.remove('hidden');
+                    btnSearch.disabled = true;
+
+                    btnTextAddr.classList.add('hidden');
+                    spinnerAddr.classList.remove('hidden');
+                    btnSearchAddr.disabled = true;
+
+                    skeletonLoader.classList.remove('hidden');
+                } else {
+                    btnText.classList.remove('hidden');
+                    spinner.classList.add('hidden');
+                    btnSearch.disabled = false;
+
+                    btnTextAddr.classList.remove('hidden');
+                    spinnerAddr.classList.add('hidden');
+                    btnSearchAddr.disabled = false;
+
+                    skeletonLoader.classList.add('hidden');
+                }
+            }
+
+            function showError(message) {
+                errorText.textContent = message;
+                errorMessage.classList.remove('hidden');
+                resultCard.classList.add('hidden');
+                addressResultsCard.classList.add('hidden');
+            }
+
+            function hideError() {
+                errorMessage.classList.add('hidden');
+            }
+
+            function showToast(msg) {
+                toastText.textContent = msg;
+                toast.classList.remove('hidden');
+                setTimeout(() => {
+                    toast.classList.add('hidden');
+                }, 3000);
+            }
+
+            /* ==========================================================================
+               History Management
+               ========================================================================== */
+
+            function getHistory() {
+                try {
+                    return JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+                } catch {
+                    return [];
+                }
+            }
+
+            function saveToHistory(data) {
+                let history = getHistory();
+                
+                history = history.filter(item => item.cep !== data.cep);
+                
+                history.unshift({
+                    cep: data.cep,
+                    logradouro: data.logradouro || data.localidade,
+                    cidadeUf: `${data.localidade}/${data.uf}`
+                });
+
+                if (history.length > 6) {
+                    history = history.slice(0, 6);
+                }
+
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(history));
+                renderHistory();
+            }
+
+            function renderHistory() {
+                const history = getHistory();
+
+                if (history.length === 0) {
+                    historySection.classList.add('hidden');
+                    return;
+                }
+
+                historySection.classList.remove('hidden');
+                historyChips.innerHTML = '';
+
+                history.forEach(item => {
+                    const chip = document.createElement('button');
+                    chip.type = 'button';
+                    chip.className = 'chip';
+                    chip.innerHTML = `
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="10"/>
+                            <polyline points="12 6 12 12 16 14"/>
+                        </svg>
+                        <span><strong>${item.cep}</strong> (${item.cidadeUf})</span>
+                    `;
+                    chip.addEventListener('click', () => {
+                        switchTab('cep');
+                        cepInput.value = item.cep;
+                        btnClear.classList.remove('hidden');
+                        fetchAddressByCep(item.cep.replace(/\D/g, ''));
+                    });
+                    historyChips.appendChild(chip);
+                });
+            }
+        });
+    </script>
+</body>
+</html>
